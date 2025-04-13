@@ -9,6 +9,7 @@
 # https://github.com/huggingface/transformers/tree/main/src/transformers/models/idefics2
 # --------------------------------------------------------
 
+from replay_buffer import ReplayBuffer
 from ViPer import (
     set_device,
     load_images,
@@ -17,7 +18,8 @@ from ViPer import (
     generate_texts,
     extract_features,
     initialize_pipelines,
-    generate_images
+    generate_images,
+    update_model_with_feedback,
 )
 
 def main():
@@ -74,6 +76,24 @@ def main():
     # Initialize pipelines and generate images
     pipe, refiner = initialize_pipelines(device)
     generate_images(pipe, refiner, prompts, vp_pos, vp_neg, output_dir)
+
+    # Initialize pipelines and generate images
+    pipe, refiner = initialize_pipelines(device)
+    generate_images(pipe, refiner, prompts, vp_pos, vp_neg, output_dir)
+
+    # === New: collect user feedback
+    buffer = ReplayBuffer(capacity=100)
+    for prompt in prompts:
+        print(f"Image generated for prompt: '{prompt}'")
+        user_comment = input("Your feedback on the image (type 'skip' to ignore): ")
+        if user_comment.lower() != "skip":
+            image_path = f"{output_dir}{prompt[:20]}.png"
+            buffer.add(image_path, user_comment)
+
+    # === New: Use feedback to update preferences
+    if buffer.get_all():
+        print("Updating model with new user feedback...")
+        update_model_with_feedback(buffer, processor, model, device)
 
 if __name__ == "__main__":
     main()

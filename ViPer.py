@@ -164,3 +164,25 @@ def generate_images(pipe, refiner, prompts, vp_pos, vp_neg, output_dir, width=10
             image=image
         ).images[0]
         image.save(f"{output_dir}{prompt[:20]}.png")
+
+def update_model_with_feedback(buffer, processor, model, device):
+    samples = buffer.get_all()
+
+    if not samples:
+        return
+
+    images = load_images([img for img, _ in samples])
+    comments = [comment for _, comment in samples]
+
+    inputs = prepare_prompt_and_inputs(processor, images, comments)
+
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-6)
+
+    outputs = model(**inputs, labels=inputs["input_ids"])
+    loss = outputs.loss
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+
+    print(f"Fine-tuning step completed. Loss: {loss.item():.4f}")
